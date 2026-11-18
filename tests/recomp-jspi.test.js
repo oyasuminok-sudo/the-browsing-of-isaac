@@ -167,4 +167,10 @@ test('build_boot.py: the experimental web Asyncify profile replaces JSPI and cov
     'Asyncify startup and main exports are called through ccall async mode');
   assert.ok(page.includes('!ASYNCIFY_BUILD && (typeof WebAssembly'),
     'the JSPI feature gate is skipped only for an explicitly selected Asyncify build');
+  const smoke = readFileSync(join(root, 'tests', 'asyncify-smoke.c'), 'utf8');
+  for (const name of ['isaac_fs_lazy_pread_js', 'isaac_yield_js', 'isaac_wait_js'])
+    assert.ok(smoke.includes(name), name + ' has a compiled Asyncify smoke path');
+  const workflow = readFileSync(join(root, '.github', 'workflows', 'asyncify-source-tests.yml'), 'utf8');
+  assert.ok(workflow.includes('__asyncjs__isaac_yield_js,__asyncjs__isaac_wait_js,__asyncjs__isaac_fs_lazy_pread_js'),
+    'the smoke build instruments all three production async imports');
 });

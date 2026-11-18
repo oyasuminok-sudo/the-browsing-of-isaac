@@ -157,6 +157,10 @@ test('build_boot.py: the experimental web Asyncify profile replaces JSPI and cov
   const page = readFileSync(join(web, 'play.mjs'), 'utf8');
   assert.ok(page.includes("const ASYNCIFY_BUILD = params.get('asyncify') === '1';"),
     'the page has an explicit opt-in mode matching the alternate bundle');
+  const boot = readFileSync(join(web, 'boot_web.mjs'), 'utf8');
+  assert.ok(boot.includes("m.ccall('isaac_run_boot', 'number', ['number'], [1], { async: true })")
+    && boot.includes("m.ccall('isaac_run_main', 'number', [], [], { async: true })"),
+    'Asyncify startup and main exports are called through ccall async mode');
   assert.ok(page.includes('!ASYNCIFY_BUILD && (typeof WebAssembly'),
     'the JSPI feature gate is skipped only for an explicitly selected Asyncify build');
 });

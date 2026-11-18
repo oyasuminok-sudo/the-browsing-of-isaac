@@ -288,16 +288,27 @@ static uint32_t g_win_tick, g_win_fills, g_win_hits;
 EM_JS(int, isaac_fs_lazy_pread_avail, (void), {
     return (typeof Module.isaacLazyPread === "function") ? 1 : 0;
 });
+#ifdef ISAAC_WEB_ASYNCIFY
+EM_ASYNC_JS(int, isaac_fs_lazy_pread_js, (const char *src, uint8_t *dst, uint32_t off, uint32_t len), {
+    if (typeof Module.isaacLazyPread !== "function") return -1;
+    var s = "";
+    for (var i = src; HEAPU8[i]; i++) s += String.fromCharCode(HEAPU8[i]);
+    var n = Module.isaacLazyPread(s, dst, off, len);
+    /* Asyncify must await the import itself; returning a bare Promise from
+     * EM_JS is only understood by JSPI, not by Asyncify. */
+    if (n && typeof n.then === "function") n = await n;
+    return typeof n === "number" ? n : -1;
+});
+#else
 EM_JS(int, isaac_fs_lazy_pread_js, (const char *src, uint8_t *dst, uint32_t off, uint32_t len), {
     if (typeof Module.isaacLazyPread !== "function") return -1;
     var s = "";
     for (var i = src; HEAPU8[i]; i++) s += String.fromCharCode(HEAPU8[i]);
     var n = Module.isaacLazyPread(s, dst, off, len);
-    /* Round 56: a promise suspends the wasm stack (this is a JSPI import,
-     * build_boot.py JSPI_IMPORTS) until the page's reader Worker has put the
-     * bytes in place; a number is the answer at once. */
+    /* JSPI parks the wasm stack while the reader Worker returns the bytes. */
     return (typeof n === "number" || (n && typeof n.then === "function")) ? n : -1;
 });
+#endif
 #else
 static int isaac_fs_lazy_pread_avail(void) { return 0; }
 static int isaac_fs_lazy_pread_js(const char *src, uint8_t *dst, uint32_t off, uint32_t len) {

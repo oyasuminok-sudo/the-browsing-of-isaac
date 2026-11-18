@@ -139,6 +139,10 @@ test('build_boot.py: the experimental web Asyncify profile replaces JSPI and cov
     'a separate opt-in Asyncify profile exists; the default JSPI build stays unchanged');
   const webBlock = src.slice(src.indexOf('    if args.web:'), src.indexOf('    if os.environ.get'));
   assert.ok(webBlock.includes('if args.web_asyncify:'), 'the browser profile branches on Asyncify');
+  assert.ok(webBlock.includes('HOST_CFLAGS = HOST_CFLAGS + ["-DISAAC_WEB_ASYNCIFY=1"]'),
+    'the real host C sources compile the Asyncify-only EM_ASYNC_JS filesystem bridge');
+  assert.ok(webBlock.includes('host_obj_suffix = ".asyncify.web.o"'),
+    'Asyncify host objects do not collide with the JSPI host-object cache');
   assert.ok(webBlock.includes('"-sASYNCIFY=1"'), 'the Asyncify profile enables Asyncify');
   for (const name of ['__asyncjs__isaac_yield_js', '__asyncjs__isaac_wait_js', '__asyncjs__isaac_fs_lazy_pread_js'])
     assert.ok(webBlock.includes(name), name + ' is marked as an async import');

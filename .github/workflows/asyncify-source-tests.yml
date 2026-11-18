@@ -43,7 +43,7 @@ jobs:
             -sASYNCIFY_STACK_SIZE=65536 \
             -sASYNCIFY_IMPORTS=__asyncjs__async_probe \
             -sSUPPORT_LONGJMP=emscripten \
-            -sNO_ENTRY=1 \
+            --no-entry \
             -sMODULARIZE=1 \
             -sEXPORT_ES6=1 \
             -sENVIRONMENT=node \

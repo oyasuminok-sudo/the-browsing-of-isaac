@@ -49,8 +49,9 @@ test('build_boot.py: the web profile links with JSPI and Wasm-EH setjmp/longjmp;
   assert.ok(src.includes('LUA_LIB_WASM_SJLJ = OUT_HOST / "lua-wasmsjlj" / "liblua.a"'), 'which lives beside the default one');
   assert.ok(src.includes('"boot_integration.c", "recomp_rt.c") else LIFT_CFLAGS + SJLJ_CFLAGS) + inc_lift'),
     'dispatch_tbl.c (compiled with the lifted flags) gets it too: isaac_guest_call_inner is the setjmp under every guest call');
-  assert.ok(src.includes('r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", "wasm"))'),
-    'a missing wasm-sjlj Lua is built, not silently substituted');
+  assert.ok(src.includes('sjlj = "emscripten" if args.web_asyncify else "wasm"')
+    && src.includes('r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", sjlj))'),
+    'Lua is built with the matching setjmp/longjmp implementation for each browser profile');
   // the lifted objects stay shared with the node profiles: their fingerprint
   // does not see the sjlj flag (they never call setjmp/longjmp themselves)
   assert.ok(src.includes('dep_fp.update(repr(LIFT_CFLAGS + inc_lift).encode())'), 'lifted-TU fingerprint unchanged');

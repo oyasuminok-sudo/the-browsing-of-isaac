@@ -34,20 +34,20 @@ jobs:
           "$RUNNER_TEMP/emsdk/emsdk" activate latest
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
           emcc --version
-      - name: Compile and run an Asyncify Promise bridge
+      - name: Compile and run the Asyncify lazy archive-read bridge
         shell: bash
         run: |
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
           emcc tests/asyncify-smoke.c -O2 \
             -sASYNCIFY=1 \
             -sASYNCIFY_STACK_SIZE=65536 \
-            -sASYNCIFY_IMPORTS=__asyncjs__async_probe \
+            -sASYNCIFY_IMPORTS=__asyncjs__isaac_fs_lazy_pread_js \
             -sSUPPORT_LONGJMP=emscripten \
             --no-entry \
             -sMODULARIZE=1 \
             -sEXPORT_ES6=1 \
             -sENVIRONMENT=node \
-            -sEXPORTED_FUNCTIONS=_async_probe_entry \
+            -sEXPORTED_FUNCTIONS=_async_pread_entry,_sync_pread_entry \
             -sEXPORTED_RUNTIME_METHODS=ccall \
             -o "$RUNNER_TEMP/asyncify-smoke.mjs"
           node tests/run-asyncify-smoke.mjs "$RUNNER_TEMP/asyncify-smoke.mjs"

@@ -259,6 +259,8 @@ def main():
         if args.web_asyncify:
             HOST_CFLAGS = HOST_CFLAGS + ["-DISAAC_WEB_ASYNCIFY=1"]
         host_obj_suffix = ".web.o"
+        if args.web_asyncify:
+            host_obj_suffix = ".asyncify.web.o"
         LDFLAGS = [f for f in LDFLAGS
                    if f not in ("-sENVIRONMENT=node", "-sNODERAWFS=1",
                                 "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP32")]
@@ -337,9 +339,10 @@ def main():
         print("no lifted_*.c in %s" % lift_dir)
         return 2
     if args.web and not LUA_LIB.exists():
-        # the wasm-sjlj Lua is a half-minute build from the same source tree
-        print("lua  : building %s (setjmp/longjmp as Wasm EH, round 25)" % LUA_LIB)
-        r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", "wasm"))
+        # Build Lua with the same setjmp/longjmp model as the selected browser profile.
+        sjlj = "emscripten" if args.web_asyncify else "wasm"
+        print("lua  : building %s (setjmp/longjmp: %s)" % (LUA_LIB, sjlj))
+        r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", sjlj))
         print("\n".join(((r.stdout or "") + (r.stderr or "")).splitlines()[-3:]))
     if not LUA_LIB.exists():
         print("liblua.a missing at %s -- run scripts/recomp/host/lua_build.py" % LUA_LIB)

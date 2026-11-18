@@ -8,8 +8,21 @@ EM_ASYNC_JS(int, isaac_fs_lazy_pread_js,
     var s = "";
     for (var i = src; HEAPU8[i]; i++) s += String.fromCharCode(HEAPU8[i]);
     var n = Module.isaacLazyPread(s, dst, off, len);
+    /* Asyncify must await the import itself, not return a bare Promise. */
     if (n && typeof n.then === "function") n = await n;
     return typeof n === "number" ? n : -1;
+});
+
+/* These two test bridges preserve the production signatures and async shape:
+ * host_shims_win.c's frame-yield and render-gate wait imports. */
+EM_ASYNC_JS(int, isaac_yield_js, (double work), {
+    await Promise.resolve();
+    return work > 0 ? 1 : 0;
+});
+
+EM_ASYNC_JS(int, isaac_wait_js, (double ms, int mode), {
+    await new Promise(function (resolve) { setTimeout(resolve, 1); });
+    return (int)ms + mode;
 });
 
 static int check_read(const char *name) {
@@ -20,12 +33,11 @@ static int check_read(const char *name) {
          + (int)dst[2] * 100 + (int)dst[3];
 }
 
-/* This path makes isaacLazyPread return a Promise, like a reader Worker miss. */
-int async_pread_entry(void) {
-    return check_read("asset");
-}
+/* Promise path, like a reader Worker miss. */
+int async_pread_entry(void) { return check_read("asset"); }
 
-/* This path returns bytes synchronously, like a cache hit. */
-int sync_pread_entry(void) {
-    return check_read("sync");
-}
+/* Synchronous path, like a cached window. */
+int sync_pread_entry(void) { return check_read("sync"); }
+
+int yield_entry(void) { return isaac_yield_js(1.0); }
+int wait_entry(void) { return isaac_wait_js(5.0, 2); }

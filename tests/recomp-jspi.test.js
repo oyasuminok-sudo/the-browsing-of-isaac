@@ -131,3 +131,29 @@ test('the interactive driver is state-driven: Enter until the game logs a run, t
   assert.ok(drv.includes("summary.shotsDiffer = !a.equals(b);"), 'walking must change the picture');
   assert.ok(/process\.exit\(ok \? 0 : 1\)/.test(drv), 'the exit code is the verdict');
 });
+
+test('build_boot.py: the experimental web Asyncify profile replaces JSPI and covers every async bridge', () => {
+  const src = readFileSync(join(lift, 'build_boot.py'), 'utf8');
+  assert.ok(src.includes('ap.add_argument("--web-asyncify", action="store_true"'),
+    'a separate opt-in Asyncify profile exists; the default JSPI build stays unchanged');
+  const webBlock = src.slice(src.indexOf('    if args.web:'), src.indexOf('    if os.environ.get'));
+  assert.ok(webBlock.includes('if args.web_asyncify:'), 'the browser profile branches on Asyncify');
+  assert.ok(webBlock.includes('"-sASYNCIFY=1"'), 'the Asyncify profile enables Asyncify');
+  for (const name of ['__asyncjs__isaac_yield_js', '__asyncjs__isaac_wait_js', '__asyncjs__isaac_fs_lazy_pread_js'])
+    assert.ok(webBlock.includes(name), name + ' is marked as an async import');
+  const start = webBlock.indexOf('if args.web_asyncify:');
+  const end = webBlock.indexOf('        else:', start);
+  const asyncify = webBlock.slice(start, end);
+  assert.ok(asyncify.includes('-sASYNCIFY_STACK_SIZE=65536'), 'Asyncify has an enlarged unwind stack');
+  assert.ok(!asyncify.includes('-sJSPI'), 'the Asyncify linker path does not require JSPI');
+  const fs = readFileSync(join(hostSrc, 'host_shims_fs.c'), 'utf8');
+  assert.ok(fs.includes('#ifdef ISAAC_WEB_ASYNCIFY') && fs.includes('EM_ASYNC_JS(int, isaac_fs_lazy_pread_js'),
+    'the lazy pread bridge awaits Promise results in Asyncify builds');
+  assert.ok(fs.includes('if (n && typeof n.then === "function") n = await n;'),
+    'the archive Worker Promise is awaited, not returned raw');
+  const page = readFileSync(join(web, 'play.mjs'), 'utf8');
+  assert.ok(page.includes("const ASYNCIFY_BUILD = params.get('asyncify') === '1';'),
+    'the page has an explicit opt-in mode matching the alternate bundle');
+  assert.ok(page.includes('!ASYNCIFY_BUILD && (typeof WebAssembly'),
+    'the JSPI feature gate is skipped only for an explicitly selected Asyncify build');
+});

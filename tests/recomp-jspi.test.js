@@ -145,6 +145,8 @@ test('build_boot.py: the experimental web Asyncify profile replaces JSPI and cov
   const end = webBlock.indexOf('        else:', start);
   const asyncify = webBlock.slice(start, end);
   assert.ok(asyncify.includes('-sASYNCIFY_STACK_SIZE=65536'), 'Asyncify has an enlarged unwind stack');
+  assert.ok(asyncify.includes('SJLJ_CFLAGS = ["-sSUPPORT_LONGJMP=emscripten"]'), 'Asyncify uses the JavaScript-based longjmp implementation');
+  assert.ok(!asyncify.includes('SUPPORT_LONGJMP=wasm'), 'Asyncify does not combine with Wasm-EH longjmp');
   assert.ok(!asyncify.includes('-sJSPI'), 'the Asyncify linker path does not require JSPI');
   const fs = readFileSync(join(hostSrc, 'host_shims_fs.c'), 'utf8');
   assert.ok(fs.includes('#ifdef ISAAC_WEB_ASYNCIFY') && fs.includes('EM_ASYNC_JS(int, isaac_fs_lazy_pread_js'),

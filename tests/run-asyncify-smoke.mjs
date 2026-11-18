@@ -9,7 +9,7 @@ const expected = [10, 20, 30, 40];
 module = await (await import(pathToFileURL(resolve(wasmModulePath)).href)).default({
   isaacLazyPread(src, dst, off, len) {
     if (off !== 17 || len !== 4) throw new Error(`unexpected read window: ${src}@${off}+${len}`);
-    const bytes = src === 'asset' ? expected : src === 'sync' ? expected : null;
+    const bytes = src === 'asset' || src === 'sync' ? expected : null;
     if (!bytes) throw new Error(`unexpected source: ${src}`);
     const put = () => {
       module.HEAPU8.set(bytes.slice(0, len), dst);
@@ -20,8 +20,14 @@ module = await (await import(pathToFileURL(resolve(wasmModulePath)).href)).defau
   }
 });
 
-for (const name of ['async_pread_entry', 'sync_pread_entry']) {
+const checks = [
+  ['async_pread_entry', 10203040],
+  ['sync_pread_entry', 10203040],
+  ['yield_entry', 1],
+  ['wait_entry', 7]
+];
+for (const [name, expectedResult] of checks) {
   const result = await module.ccall(name, 'number', [], [], { async: true });
-  if (result !== 10203040) throw new Error(`${name} returned ${result}, expected 10203040`);
+  if (result !== expectedResult) throw new Error(`${name} returned ${result}, expected ${expectedResult}`);
 }
-process.stdout.write('Asyncify lazy archive read (Promise + sync cache hit): PASS\n');
+process.stdout.write('Asyncify filesystem + frame-yield + wait bridges: PASS\\n');

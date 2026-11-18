@@ -278,7 +278,7 @@ def main():
         else:
             # JSPI remains the smaller default profile for supporting browsers.
             LDFLAGS += ["-sJSPI", "-sJSPI_EXPORTS=isaac_run_main,isaac_run_boot",
-                        "-sJSPI_IMPORTS=emscripten_sleep,__asyncjs__isaac_yield_js,__asyncjs__isaac_fs_lazy_pread_js",
+                        "-sJSPI_IMPORTS=emscripten_sleep,__asyncjs__isaac_yield_js,isaac_fs_lazy_pread_js",
                         "-sSUPPORT_LONGJMP=wasm"]
         LDFLAGS += ["-sENVIRONMENT=web", "-sFORCE_FILESYSTEM=1",
                     "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP32,FS,ENV",

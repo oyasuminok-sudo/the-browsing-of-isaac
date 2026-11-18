@@ -48,6 +48,6 @@ jobs:
             -sEXPORT_ES6=1 \
             -sENVIRONMENT=node \
             -sEXPORTED_FUNCTIONS=_async_pread_entry,_sync_pread_entry \
-            -sEXPORTED_RUNTIME_METHODS=ccall \
+            -sEXPORTED_RUNTIME_METHODS=ccall,HEAPU8 \
             -o "$RUNNER_TEMP/asyncify-smoke.mjs"
           node tests/run-asyncify-smoke.mjs "$RUNNER_TEMP/asyncify-smoke.mjs"

@@ -90,8 +90,11 @@ asks first.
 
 ## Browsers
 
-Chrome, Edge and other Chromium browsers, on desktop or Android. If your browser
-can't run it, the page says so.
+Chrome, Edge and other Chromium browsers on desktop or Android, and Safari 27+
+(including iPadOS 27+). Safari 27 added WebAssembly JSPI, which the normal
+browser build uses ([WebKit release notes](https://webkit.org/blog/18325/webkit-features-for-safari-27-0/)).
+Older Safari versions do not support JSPI and need a separately built Asyncify
+bundle; the experimental build instructions below are not yet a tested release.
 
 ## Building it yourself
 
@@ -128,3 +131,32 @@ Isaac: Repentance+*: the game's code, assets and name belong to Nicalis, Inc. an
 Edmund McMillen, and so does anything recompiled or translated from its executable.
 [REPENTOGON](https://github.com/TeamREPENTOGON/REPENTOGON), included as a submodule,
 keeps its own license (GPL-2.0).
+
+
+## Experimental Safari compatibility build (Asyncify)
+
+The normal browser profile uses WebAssembly JSPI and remains the preferred, smaller build.
+For browsers without JSPI, an experimental alternative can be built with Emscripten Asyncify:
+
+```sh
+python scripts/recomp/lift/build_boot.py --web-asyncify --fast
+```
+
+The output is written to `output/recomp/lift/boot-web-asyncify-fast/`.
+To exercise it with the repository's browser runner:
+
+```sh
+node scripts/recomp/web/run_web.mjs output/recomp/web-asyncify-run 0 interactive=1 asyncify=1 boot=output/recomp/lift/boot-web-asyncify-fast
+```
+
+For the shipping page, deploy that profile's `boot.mjs` and `boot.wasm` alongside the
+web page's other assets, then open the page with `?asyncify=1`. Do not set that query
+parameter when serving the regular JSPI bundle.
+
+**Experimental status:** this profile has not yet been validated against the complete game
+runtime or on iPadOS Safari. Asyncify instruments the WebAssembly call graph and can
+substantially increase module size and execution cost. It also uses the JavaScript-based
+setjmp/longjmp implementation, while the regular JSPI profile keeps the Wasm-EH variant.
+A successful compile, browser boot, gameplay test, and iPad memory/performance check are
+all required before calling this profile stable. The repository does not include the
+proprietary game data needed to produce a complete playable distribution.

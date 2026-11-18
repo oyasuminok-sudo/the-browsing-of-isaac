@@ -49,8 +49,9 @@ test('build_boot.py: the web profile links with JSPI and Wasm-EH setjmp/longjmp;
   assert.ok(src.includes('LUA_LIB_WASM_SJLJ = OUT_HOST / "lua-wasmsjlj" / "liblua.a"'), 'which lives beside the default one');
   assert.ok(src.includes('"boot_integration.c", "recomp_rt.c") else LIFT_CFLAGS + SJLJ_CFLAGS) + inc_lift'),
     'dispatch_tbl.c (compiled with the lifted flags) gets it too: isaac_guest_call_inner is the setjmp under every guest call');
-  assert.ok(src.includes('r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", "wasm"))'),
-    'a missing wasm-sjlj Lua is built, not silently substituted');
+  assert.ok(src.includes('sjlj = "emscripten" if args.web_asyncify else "wasm"')
+    && src.includes('r = run(py_cmd(str(HOST / "lua_build.py"), "--build", "--sjlj", sjlj))'),
+    'Lua is built with the matching setjmp/longjmp implementation for each browser profile');
   // the lifted objects stay shared with the node profiles: their fingerprint
   // does not see the sjlj flag (they never call setjmp/longjmp themselves)
   assert.ok(src.includes('dep_fp.update(repr(LIFT_CFLAGS + inc_lift).encode())'), 'lifted-TU fingerprint unchanged');
@@ -130,4 +131,46 @@ test('the interactive driver is state-driven: Enter until the game logs a run, t
     'real key events through Playwright, held across frames (a tap lands between two per-frame samples)');
   assert.ok(drv.includes("summary.shotsDiffer = !a.equals(b);"), 'walking must change the picture');
   assert.ok(/process\.exit\(ok \? 0 : 1\)/.test(drv), 'the exit code is the verdict');
+});
+
+test('build_boot.py: the experimental web Asyncify profile replaces JSPI and covers every async bridge', () => {
+  const src = readFileSync(join(lift, 'build_boot.py'), 'utf8');
+  assert.ok(src.includes('ap.add_argument("--web-asyncify", action="store_true"'),
+    'a separate opt-in Asyncify profile exists; the default JSPI build stays unchanged');
+  const webBlock = src.slice(src.indexOf('    if args.web:'), src.indexOf('    if os.environ.get'));
+  assert.ok(webBlock.includes('if args.web_asyncify:'), 'the browser profile branches on Asyncify');
+  assert.ok(webBlock.includes('HOST_CFLAGS = HOST_CFLAGS + ["-DISAAC_WEB_ASYNCIFY=1"]'),
+    'the real host C sources compile the Asyncify-only EM_ASYNC_JS filesystem bridge');
+  assert.ok(webBlock.includes('host_obj_suffix = ".asyncify.web.o"'),
+    'Asyncify host objects do not collide with the JSPI host-object cache');
+  assert.ok(webBlock.includes('"-sASYNCIFY=1"'), 'the Asyncify profile enables Asyncify');
+  for (const name of ['__asyncjs__isaac_yield_js', '__asyncjs__isaac_wait_js', '__asyncjs__isaac_fs_lazy_pread_js'])
+    assert.ok(webBlock.includes(name), name + ' is marked as an async import');
+  const start = webBlock.indexOf('if args.web_asyncify:');
+  const end = webBlock.indexOf('        else:', start);
+  const asyncify = webBlock.slice(start, end);
+  assert.ok(asyncify.includes('-sASYNCIFY_STACK_SIZE=65536'), 'Asyncify has an enlarged unwind stack');
+  assert.ok(asyncify.includes('SJLJ_CFLAGS = ["-sSUPPORT_LONGJMP=emscripten"]'), 'Asyncify uses the JavaScript-based longjmp implementation');
+  assert.ok(!asyncify.includes('SUPPORT_LONGJMP=wasm'), 'Asyncify does not combine with Wasm-EH longjmp');
+  assert.ok(!asyncify.includes('-sJSPI'), 'the Asyncify linker path does not require JSPI');
+  const fs = readFileSync(join(hostSrc, 'host_shims_fs.c'), 'utf8');
+  assert.ok(fs.includes('#ifdef ISAAC_WEB_ASYNCIFY') && fs.includes('EM_ASYNC_JS(int, isaac_fs_lazy_pread_js'),
+    'the lazy pread bridge awaits Promise results in Asyncify builds');
+  assert.ok(fs.includes('if (n && typeof n.then === "function") n = await n;'),
+    'the archive Worker Promise is awaited, not returned raw');
+  const page = readFileSync(join(web, 'play.mjs'), 'utf8');
+  assert.ok(page.includes("const ASYNCIFY_BUILD = params.get('asyncify') === '1';"),
+    'the page has an explicit opt-in mode matching the alternate bundle');
+  const boot = readFileSync(join(web, 'boot_web.mjs'), 'utf8');
+  assert.ok(boot.includes("m.ccall('isaac_run_boot', 'number', ['number'], [1], { async: true })")
+    && boot.includes("m.ccall('isaac_run_main', 'number', [], [], { async: true })"),
+    'Asyncify startup and main exports are called through ccall async mode');
+  assert.ok(page.includes('!ASYNCIFY_BUILD && (typeof WebAssembly'),
+    'the JSPI feature gate is skipped only for an explicitly selected Asyncify build');
+  const smoke = readFileSync(join(root, 'tests', 'asyncify-smoke.c'), 'utf8');
+  for (const name of ['isaac_fs_lazy_pread_js', 'isaac_yield_js', 'isaac_wait_js'])
+    assert.ok(smoke.includes(name), name + ' has a compiled Asyncify smoke path');
+  const workflow = readFileSync(join(root, '.github', 'workflows', 'asyncify-source-tests.yml'), 'utf8');
+  assert.ok(workflow.includes('__asyncjs__isaac_yield_js,__asyncjs__isaac_wait_js,__asyncjs__isaac_fs_lazy_pread_js'),
+    'the smoke build instruments all three production async imports');
 });

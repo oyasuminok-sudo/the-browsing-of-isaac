@@ -96,6 +96,7 @@ const params = new URLSearchParams(location.search);
 for (const [k, v] of Object.entries((hooks && hooks.params) || {})) {
   if (!params.has(k)) params.set(k, String(v));
 }
+const ASYNCIFY_BUILD = params.get('asyncify') === '1';
 const cfg = {
   canvas: document.getElementById('canvas'),
   print: log,
@@ -1436,7 +1437,9 @@ try {
   });
 
   // --- boot + main
-  done.bootRc = await stageOk('host boot (IAT + TEB + TLS + _initterm)', () => m._isaac_run_boot(1));
+  done.bootRc = await stageOk('host boot (IAT + TEB + TLS + _initterm)', () => ASYNCIFY_BUILD
+    ? m.ccall('isaac_run_boot', 'number', ['number'], [1], { async: true })
+    : m._isaac_run_boot(1));
   log(`  isaac_boot_init -> ${done.bootRc}`);
   if (done.bootRc === null) throw new Error('boot trapped');
   // Round 34: the shipping page waits for its Play button here (a user gesture for WebAudio).
@@ -1444,8 +1447,10 @@ try {
   // Under JSPI (round 25) _isaac_run_main returns a promise that settles when
   // main returns; without it the call is synchronous. Both are awaited here.
   done.mainRc = await stageOk('main @ 0x00931050', () => {
-    const r = m._isaac_run_main();
-    log(`  _isaac_run_main returned a ${r && typeof r.then === 'function' ? 'promise (JSPI)' : 'value (synchronous)'}`);
+    const r = ASYNCIFY_BUILD
+      ? m.ccall('isaac_run_main', 'number', [], [], { async: true })
+      : m._isaac_run_main();
+    log(`  _isaac_run_main returned a ${r && typeof r.then === 'function' ? 'promise (async)' : 'value (synchronous)'}`);
     return r;
   });
   log(`  isaac_boot_call_main -> ${done.mainRc}`);

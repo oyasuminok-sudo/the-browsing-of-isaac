@@ -1,0 +1,75 @@
+name: Asyncify compatibility source tests
+
+on:
+  push:
+    branches:
+      - ios-jspi-compatibility
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  source-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check Asyncify and JSPI profile wiring
+        run: node --test tests/recomp-jspi.test.js
+
+  asyncify-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright WebKit
+        run: |
+          npm ci
+          npx playwright install --with-deps webkit
+      - name: Install Emscripten
+        shell: bash
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install latest
+          "$RUNNER_TEMP/emsdk/emsdk" activate latest
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcc --version
+      - name: Compile and run all Asyncify bridges in Node
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcc tests/asyncify-smoke.c -O2 \
+            -sASYNCIFY=1 \
+            -sASYNCIFY_STACK_SIZE=65536 \
+            -sASYNCIFY_IMPORTS=__asyncjs__isaac_yield_js,__asyncjs__isaac_wait_js,__asyncjs__isaac_fs_lazy_pread_js \
+            -sSUPPORT_LONGJMP=emscripten \
+            --no-entry \
+            -sMODULARIZE=1 \
+            -sEXPORT_ES6=1 \
+            -sENVIRONMENT=node \
+            -sEXPORTED_FUNCTIONS=_async_pread_entry,_sync_pread_entry,_yield_entry,_wait_entry \
+            -sEXPORTED_RUNTIME_METHODS=ccall,HEAPU8 \
+            -o "$RUNNER_TEMP/asyncify-smoke.mjs"
+          node tests/run-asyncify-smoke.mjs "$RUNNER_TEMP/asyncify-smoke.mjs"
+      - name: Compile and run all Asyncify bridges in WebKit
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          mkdir -p "$RUNNER_TEMP/asyncify-web"
+          emcc tests/asyncify-smoke.c -O2 \
+            -sASYNCIFY=1 \
+            -sASYNCIFY_STACK_SIZE=65536 \
+            -sASYNCIFY_IMPORTS=__asyncjs__isaac_yield_js,__asyncjs__isaac_wait_js,__asyncjs__isaac_fs_lazy_pread_js \
+            -sSUPPORT_LONGJMP=emscripten \
+            --no-entry \
+            -sMODULARIZE=1 \
+            -sEXPORT_ES6=1 \
+            -sENVIRONMENT=web \
+            -sEXPORTED_FUNCTIONS=_async_pread_entry,_sync_pread_entry,_yield_entry,_wait_entry \
+            -sEXPORTED_RUNTIME_METHODS=ccall,HEAPU8 \
+            -o "$RUNNER_TEMP/asyncify-web/asyncify-smoke.mjs"
+          node tests/run-asyncify-webkit.mjs "$RUNNER_TEMP/asyncify-web"

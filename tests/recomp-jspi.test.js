@@ -155,7 +155,7 @@ test('build_boot.py: the experimental web Asyncify profile replaces JSPI and cov
   assert.ok(fs.includes('if (n && typeof n.then === "function") n = await n;'),
     'the archive Worker Promise is awaited, not returned raw');
   const page = readFileSync(join(web, 'play.mjs'), 'utf8');
-  assert.ok(page.includes("const ASYNCIFY_BUILD = params.get('asyncify') === '1';'),
+  assert.ok(page.includes("const ASYNCIFY_BUILD = params.get('asyncify') === '1';"),
     'the page has an explicit opt-in mode matching the alternate bundle');
   assert.ok(page.includes('!ASYNCIFY_BUILD && (typeof WebAssembly'),
     'the JSPI feature gate is skipped only for an explicitly selected Asyncify build');

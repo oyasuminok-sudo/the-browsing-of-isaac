@@ -90,8 +90,11 @@ asks first.
 
 ## Browsers
 
-Chrome, Edge and other Chromium browsers, on desktop or Android. If your browser
-can't run it, the page says so.
+Chrome, Edge and other Chromium browsers on desktop or Android, and Safari 27+
+(including iPadOS 27+). Safari 27 added WebAssembly JSPI, which the normal
+browser build uses ([WebKit release notes](https://webkit.org/blog/18325/webkit-features-for-safari-27-0/)).
+Older Safari versions do not support JSPI and need a separately built Asyncify
+bundle; the experimental build instructions below are not yet a tested release.
 
 ## Building it yourself
 

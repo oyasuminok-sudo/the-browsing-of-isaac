@@ -15,7 +15,7 @@
 //                     so the AudioContext the AL shim creates starts running)
 //   onAudioReady(A)   holds the output gain closed until native readiness,
 //                     without muting the mixer or suspending its context
-// Defaults: ISAAC_YIELD=1 (live page, JSPI) and no frame budget, handed to the
+// Defaults: ISAAC_YIELD=1 (live page) and no frame budget, handed to the
 // pipeline as hooks.params rather than written into the URL. ?frames=N ends the run after N
 // frames (the drivers), ?autoplay=1 skips the Play button (headless runs),
 // ?persist=0 turns the save store off, ISAAC_*=... goes into the module's ENV.
@@ -37,6 +37,7 @@ const params = new URLSearchParams(location.search);
 // than by rewriting the address bar, which used to leave ?ISAAC_YIELD=1 in a
 // URL nobody asked for.
 const pageDefaults = {};
+const ASYNCIFY_BUILD = params.get('asyncify') === '1';
 if (!params.has('ISAAC_YIELD')) { params.set('ISAAC_YIELD', '1'); pageDefaults.ISAAC_YIELD = '1'; }
 const AUTOPLAY = params.get('autoplay') !== '0';   // the page starts on its own; autoplay=0 keeps the Play button (a gesture before any audio)
 const PERSIST = params.get('persist') !== '0';
@@ -230,9 +231,9 @@ if (portable && typeof portable.progress === 'function' && window.__isaacPortabl
 // The native engine still requires JSPI and a WebGL 2 context.
 let runtimeError = '';
 let gpuRenderer = 'gpu?';   // read off the probe context below, for the frame-rate line's machine note
-if (typeof WebAssembly === 'undefined' || typeof WebAssembly.Suspending !== 'function'
-  || typeof WebAssembly.promising !== 'function') {
-  runtimeError = 'This game requires WebAssembly JavaScript Promise Integration (JSPI). Update your browser or use a browser with JSPI support.';
+if (!ASYNCIFY_BUILD && (typeof WebAssembly === 'undefined' || typeof WebAssembly.Suspending !== 'function'
+  || typeof WebAssembly.promising !== 'function')) {
+  runtimeError = 'This build requires WebAssembly JSPI. Use a JSPI-capable browser, or load the Asyncify build with ?asyncify=1.';
 } else {
   let gl = null;
   try { gl = document.createElement('canvas').getContext('webgl2'); } catch { /* unsupported or disabled */ }

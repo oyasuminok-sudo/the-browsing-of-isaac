@@ -262,21 +262,25 @@ def main():
         LDFLAGS = [f for f in LDFLAGS
                    if f not in ("-sENVIRONMENT=node", "-sNODERAWFS=1",
                                 "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP32")]
-        # Both browser profiles use Wasm-EH setjmp/longjmp so the guest and Lua
-        # keep the same non-local-exit semantics in either async implementation.
-        SJLJ_CFLAGS = ["-sSUPPORT_LONGJMP=wasm"]
-        HOST_CFLAGS = HOST_CFLAGS + SJLJ_CFLAGS
-        LUA_LIB = LUA_LIB_WASM_SJLJ
         if args.web_asyncify:
+            # Asyncify and Wasm-EH cannot be combined on affected code paths.
+            # Use Emscripten's JS-based setjmp/longjmp implementation in the
+            # host, dispatch layer and Lua for this compatibility profile.
+            SJLJ_CFLAGS = ["-sSUPPORT_LONGJMP=emscripten"]
+            HOST_CFLAGS = HOST_CFLAGS + SJLJ_CFLAGS
+            # LUA_LIB stays on the ordinary emscripten-SjLj archive.
             # Asyncify rewrites wasm call paths instead of requiring browser JSPI.
             # Mark every promise-returning bridge: frame pacing and ranged archive
-            # reads. emscripten_sleep is included by Emscripten's runtime.
+            # reads. emscripten_sleep is included by Emscripten's Asyncify runtime.
             LDFLAGS += ["-sASYNCIFY=1",
                         "-sASYNCIFY_STACK_SIZE=65536",
                         "-sASYNCIFY_IMPORTS=__asyncjs__isaac_yield_js,__asyncjs__isaac_wait_js,__asyncjs__isaac_fs_lazy_pread_js",
-                        "-sSUPPORT_LONGJMP=wasm"]
+                        "-sSUPPORT_LONGJMP=emscripten"]
         else:
             # JSPI remains the smaller default profile for supporting browsers.
+            SJLJ_CFLAGS = ["-sSUPPORT_LONGJMP=wasm"]
+            HOST_CFLAGS = HOST_CFLAGS + SJLJ_CFLAGS
+            LUA_LIB = LUA_LIB_WASM_SJLJ
             LDFLAGS += ["-sJSPI", "-sJSPI_EXPORTS=isaac_run_main,isaac_run_boot",
                         "-sJSPI_IMPORTS=emscripten_sleep,__asyncjs__isaac_yield_js,isaac_fs_lazy_pread_js",
                         "-sSUPPORT_LONGJMP=wasm"]

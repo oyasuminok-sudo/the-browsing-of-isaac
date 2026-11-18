@@ -287,7 +287,7 @@ def main():
                         "-sJSPI_IMPORTS=emscripten_sleep,__asyncjs__isaac_yield_js,isaac_fs_lazy_pread_js",
                         "-sSUPPORT_LONGJMP=wasm"]
         LDFLAGS += ["-sENVIRONMENT=web", "-sFORCE_FILESYSTEM=1",
-                    "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP32,FS,ENV",
+                    "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP32,FS,ENV,ccall",
                     "-sMAX_WEBGL_VERSION=2", "-sMIN_WEBGL_VERSION=2",
                     "-sGL_ENABLE_GET_PROC_ADDRESS=0", "-lGL"]
     if os.environ.get('ISAAC_LINK_O3') == '1':

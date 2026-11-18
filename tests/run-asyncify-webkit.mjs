@@ -24,9 +24,18 @@ const html = `<!doctype html>
           return put();
         }
       });
-      const asyncResult = await M.ccall('async_pread_entry', 'number', [], [], { async: true });
-      const syncResult = await M.ccall('sync_pread_entry', 'number', [], [], { async: true });
-      window.__asyncifyResult = { done: true, ok: asyncResult === 10203040 && syncResult === 10203040, asyncResult, syncResult };
+      const checks = [
+        ['async_pread_entry', 10203040],
+        ['sync_pread_entry', 10203040],
+        ['yield_entry', 1],
+        ['wait_entry', 7]
+      ];
+      const results = [];
+      for (const [name, expected] of checks) {
+        const value = await M.ccall(name, 'number', [], [], { async: true });
+        results.push({ name, value, expected, ok: value === expected });
+      }
+      window.__asyncifyResult = { done: true, ok: results.every((r) => r.ok), results };
     } catch (error) {
       window.__asyncifyResult = { done: true, ok: false, error: String(error && (error.stack || error)) };
     }
@@ -71,7 +80,7 @@ try {
   await page.waitForFunction(() => window.__asyncifyResult?.done === true, null, { timeout: 30000 });
   const result = await page.evaluate(() => window.__asyncifyResult);
   if (!result.ok) throw new Error(`WebKit Asyncify smoke failed: ${JSON.stringify(result)}`);
-  process.stdout.write('WebKit Asyncify lazy archive read (Promise + sync cache hit): PASS\\n');
+  process.stdout.write('WebKit Asyncify filesystem + frame-yield + wait bridges: PASS\\n');
 } finally {
   if (browser) await browser.close();
   await new Promise((resolve) => server.close(resolve));
